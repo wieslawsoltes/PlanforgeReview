@@ -1,0 +1,80 @@
+name: Test and deploy Planforge Review
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned browser dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --ignore-scripts --no-audit --no-fund
+          else
+            npm install --ignore-scripts --no-audit --no-fund
+          fi
+      - name: Core tests and syntax checks
+        run: |
+          npm test
+          for file in src/*.js scripts/*.mjs server.mjs; do node --check "$file"; done
+      - name: Build self-contained static site
+        run: npm run build && npm run test:pages
+      - name: Install integration test tools
+        run: |
+          python -m pip install -r requirements.txt playwright
+          python -m playwright install --with-deps chromium
+      - name: Real PDF and HTTP integration tests
+        run: |
+          python -m unittest discover -s tests -p backend_test.py
+          python -m unittest discover -s tests -p http_smoke.py
+      - name: Browser-only integration at repository subpath
+        run: python tests/pages_browser.py
+      - name: Upload test evidence and dependency lock
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-and-lock
+          path: |
+            test-results/
+            package-lock.json
+      - name: Upload GitHub Pages artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

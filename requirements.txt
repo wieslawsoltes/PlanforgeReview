@@ -1,0 +1,2 @@
+# Optional local PDF backend. PyMuPDF uses AGPL/commercial licensing.
+PyMuPDF>=1.26.0,<2

@@ -1,0 +1,21 @@
+{
+  "name": "planforge-review",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first PDF drawing review, vector markups and calibrated quantity takeoff",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test tests/core.test.mjs",
+    "build": "node scripts/build.mjs",
+    "test:pages": "node --test tests/pages.test.mjs"
+  },
+  "dependencies": {
+    "pdfjs-dist": "5.4.624",
+    "pdf-lib": "1.17.1"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}
